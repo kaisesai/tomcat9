@@ -1258,7 +1258,7 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
         }
       }
   
-      // （2）搜索本地仓库
+      // （2）搜索本地仓库，进行本地加载
       // (2) Search local repositories
       if (log.isDebugEnabled()) {
         log.debug("  Searching local repositories");
