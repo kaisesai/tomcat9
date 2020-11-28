@@ -88,6 +88,7 @@ public class IdentityInputFilter implements InputFilter, ApplicationBufferHandle
     
     if (contentLength >= 0) {
       if (remaining > 0) {
+        // 唯一输入过滤器读取数据
         int nRead = buffer.doRead(handler);
         if (nRead > remaining) {
           // The chunk is longer than the number of bytes remaining

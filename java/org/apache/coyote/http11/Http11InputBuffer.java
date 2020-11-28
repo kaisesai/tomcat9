@@ -237,6 +237,7 @@ public class Http11InputBuffer implements InputBuffer, ApplicationBufferHandler 
         if (lastActiveFilter == -1) {
             return inputStreamInputBuffer.doRead(handler);
         } else {
+            // 输入缓冲区读取请求体数据
             return activeFilters[lastActiveFilter].doRead(handler);
         }
     }
@@ -358,6 +359,7 @@ public class Http11InputBuffer implements InputBuffer, ApplicationBufferHandler 
                 if (!keptAlive && byteBuffer.position() == 0
                   && byteBuffer.limit() >= CLIENT_PREFACE_START.length - 1) {
                     boolean prefaceMatch = true;
+                  // 用读取到的数据，匹配是否 HTTP2 开头的
                     for (int i = 0; i < CLIENT_PREFACE_START.length && prefaceMatch; i++) {
                         if (CLIENT_PREFACE_START[i] != byteBuffer.get(i)) {
                             prefaceMatch = false;
@@ -597,6 +599,7 @@ public class Http11InputBuffer implements InputBuffer, ApplicationBufferHandler 
         HeaderParseStatus status = HeaderParseStatus.HAVE_MORE_HEADERS;
         
         do {
+          // 处理请求头数据
             status = parseHeader();
             // Checking that
             // (1) Headers plus request line size does not exceed its limit
@@ -750,19 +753,22 @@ public class Http11InputBuffer implements InputBuffer, ApplicationBufferHandler 
         int bufLength = headerBufferSize + wrapper.getSocketBufferHandler().getReadBuffer()
           .capacity();
         if (byteBuffer == null || byteBuffer.capacity() < bufLength) {
+          // 初始化时进行分配
             byteBuffer = ByteBuffer.allocate(bufLength);
             byteBuffer.position(0).limit(0);
         }
     }
     
     // --------------------------------------------------------- Private Methods
-    
-    /**
-     * Attempts to read some data into the input buffer.
-     *
-     * @return <code>true</code> if more data was added to the input buffer
-     * otherwise <code>false</code>
-     */
+  
+  /**
+   * 尝试将一些数据读入输入缓冲区。
+   * <p>
+   * Attempts to read some data into the input buffer.
+   *
+   * @return <code>true</code> if more data was added to the input buffer
+   * otherwise <code>false</code>
+   */
     private boolean fill(boolean block) throws IOException {
         
         if (log.isDebugEnabled()) {
@@ -792,9 +798,10 @@ public class Http11InputBuffer implements InputBuffer, ApplicationBufferHandler 
         byteBuffer.limit(byteBuffer.capacity());
         SocketWrapperBase<?> socketWrapper = this.wrapper;
         int nRead = -1;
-        if (socketWrapper != null) {
-            nRead = socketWrapper.read(block, byteBuffer);
-        } else {
+      if (socketWrapper != null) {
+        // 读取socket 数据，到 byteBuffer
+        nRead = socketWrapper.read(block, byteBuffer);
+      } else {
             throw new CloseNowException(sm.getString("iib.eof.error"));
         }
         byteBuffer.limit(byteBuffer.position()).reset();
@@ -1182,7 +1189,8 @@ public class Http11InputBuffer implements InputBuffer, ApplicationBufferHandler 
             }
             
             int length = byteBuffer.remaining();
-            handler.setByteBuffer(byteBuffer.duplicate());
+            // 复制 byteBuffer 到新的数据缓冲区
+          handler.setByteBuffer(byteBuffer.duplicate());
             byteBuffer.position(byteBuffer.limit());
             
             return length;

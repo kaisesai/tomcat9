@@ -29,6 +29,8 @@ import org.apache.catalina.security.SecurityUtil;
 import org.apache.tomcat.util.res.StringManager;
 
 /**
+ * 处理读取请求体中的数据。
+ * <p>
  * This class handles reading bytes.
  *
  * @author Remy Maucherat
@@ -37,6 +39,7 @@ public class CoyoteInputStream extends ServletInputStream {
   
   protected static final StringManager sm = StringManager.getManager(CoyoteInputStream.class);
   
+  // 输入缓冲区
   protected InputBuffer ib;
   
   protected CoyoteInputStream(InputBuffer ib) {
@@ -102,6 +105,7 @@ public class CoyoteInputStream extends ServletInputStream {
   
   @Override
   public int read(final byte[] b) throws IOException {
+    // 读取数据到给定的 byte 数组
     return read(b, 0, b.length);
   }
   
@@ -122,6 +126,7 @@ public class CoyoteInputStream extends ServletInputStream {
         }
       }
     } else {
+      // 从输入缓存区读取数据
       return ib.read(b, off, len);
     }
   }

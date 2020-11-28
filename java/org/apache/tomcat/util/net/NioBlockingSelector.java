@@ -52,9 +52,11 @@ public class NioBlockingSelector {
   
   public void open(String name, Selector selector) {
     sharedSelector = selector;
+    // 阻塞轮询器
     poller = new BlockPoller();
     poller.selector = sharedSelector;
     poller.setDaemon(true);
+    // 阻塞轮询器
     poller.setName(name + "-BlockPoller");
     poller.start();
   }
@@ -158,32 +160,39 @@ public class NioBlockingSelector {
    * @throws IOException            if an IO Exception occurs in the underlying socket logic
    */
   public int read(ByteBuffer buf, NioChannel socket, long readTimeout) throws IOException {
+    // 获取客户端端 socket 的选择器 key
     SelectionKey key = socket.getIOChannel()
       .keyFor(socket.getSocketWrapper().getPoller().getSelector());
     if (key == null) {
       throw new IOException(sm.getString("nioBlockingSelector.keyNotRegistered"));
     }
+    // key 引用
     KeyReference reference = keyReferenceStack.pop();
     if (reference == null) {
       reference = new KeyReference();
     }
+    // 获取 key 的附件，socket 包装器
     NioSocketWrapper att = (NioSocketWrapper) key.attachment();
     int read = 0;
     boolean timedout = false;
     int keycount = 1; //assume we can read
     long time = System.currentTimeMillis(); //start the timeout timer
     try {
+      // 不断循环
       while (!timedout) {
         if (keycount > 0) { //only read if we were registered for a read
+          // 从 socket 去中读取数据到缓冲区
           read = socket.read(buf);
           if (read != 0) {
             break;
           }
         }
+        // 没有读取到数据，或者 key 数量为 0
         try {
           if (att.getReadLatch() == null || att.getReadLatch().getCount() == 0) {
             att.startReadLatch(1);
           }
+          // 轮询器添加 socket 事件
           poller.add(att, SelectionKey.OP_READ, reference);
           att.awaitReadLatch(AbstractEndpoint.toTimeout(readTimeout), TimeUnit.MILLISECONDS);
         } catch (InterruptedException ignore) {
@@ -205,16 +214,22 @@ public class NioBlockingSelector {
         throw new SocketTimeoutException();
       }
     } finally {
+      // 最后移除轮询器事件
       poller.remove(att, SelectionKey.OP_READ);
       if (timedout && reference.key != null) {
         poller.cancelKey(reference.key);
       }
+      // 取出引用的 key
       reference.key = null;
+      // 把引用放入引用栈中
       keyReferenceStack.push(reference);
     }
     return read;
   }
   
+  /**
+   * 阻塞轮询器
+   */
   protected static class BlockPoller extends Thread {
     
     protected final SynchronizedQueue<Runnable> events = new SynchronizedQueue<>();
@@ -255,17 +270,28 @@ public class NioBlockingSelector {
       }
     }
     
+    /**
+     * 阻塞轮询器添加事件
+     *
+     * @param key
+     * @param ops
+     * @param ref
+     */
     public void add(final NioSocketWrapper key, final int ops, final KeyReference ref) {
       if (key == null) {
         return;
       }
+      // 获取客户端 socket
       NioChannel nch = key.getSocket();
       final SocketChannel ch = nch.getIOChannel();
       if (ch == null) {
         return;
       }
+      // 创建一个任务
       Runnable r = new RunnableAdd(ch, key, ops, ref);
+      // 把任务放入事件队列中
       events.offer(r);
+      // 唤醒 selector 选择器
       wakeup();
     }
     
@@ -298,6 +324,7 @@ public class NioBlockingSelector {
        * which will kill a lot of time, and greatly affect performance of
        * the poller loop.
        */
+      // 处理事件队列中的事件任务
       int size = events.size();
       for (int i = 0; i < size && (r = events.poll()) != null; i++) {
         r.run();
@@ -305,13 +332,18 @@ public class NioBlockingSelector {
       return (size > 0);
     }
     
+    /**
+     * 阻塞轮询器执行任务
+     */
     @Override
     public void run() {
       while (run) {
         try {
+          // 处理事件
           events();
           int keyCount = 0;
           try {
+            // 阻塞的获取选择器 key 数量
             int i = wakeupCounter.get();
             if (i > 0) {
               keyCount = selector.selectNow();
@@ -344,8 +376,8 @@ public class NioBlockingSelector {
             continue;
           }
           
-          Iterator<SelectionKey> iterator = keyCount > 0 ? selector.selectedKeys().iterator() :
-                                            null;
+          // 遍历选择器 key，处理 socket
+          Iterator<SelectionKey> iterator = keyCount > 0 ? selector.selectedKeys().iterator() : null;
           
           // Walk through the collection of ready keys and dispatch
           // any active event.
@@ -353,7 +385,9 @@ public class NioBlockingSelector {
             SelectionKey sk = iterator.next();
             NioSocketWrapper socketWrapper = (NioSocketWrapper) sk.attachment();
             try {
+              // 移除选择器 key
               iterator.remove();
+              // 设置选择器 key 的操作选项
               sk.interestOps(sk.interestOps() & (~sk.readyOps()));
               if (sk.isReadable()) {
                 countDown(socketWrapper.getReadLatch());
@@ -371,6 +405,7 @@ public class NioBlockingSelector {
           log.error(sm.getString("nioBlockingSelector.processingError"), t);
         }
       }
+      // 最后清空事件队列
       events.clear();
       // If using a shared selector, the NioSelectorPool will also try and
       // close the selector. Try and avoid the ClosedSelectorException
@@ -387,6 +422,7 @@ public class NioBlockingSelector {
         }
       }
       try {
+        // 关闭选择器
         selector.close();
       } catch (Exception ignore) {
         if (log.isDebugEnabled()) {
@@ -417,6 +453,9 @@ public class NioBlockingSelector {
       
     }
     
+    /**
+     * 阻塞轮询器执行的任务
+     */
     private class RunnableAdd implements Runnable {
       
       private final SocketChannel ch;
@@ -436,10 +475,13 @@ public class NioBlockingSelector {
       
       @Override
       public void run() {
+        // 从 socket 中获取选择器对应的 key
         SelectionKey sk = ch.keyFor(selector);
         try {
           if (sk == null) {
+            // 注册选择器 key
             sk = ch.register(selector, ops, key);
+            // 设置引用的 key
             ref.key = sk;
           } else if (!sk.isValid()) {
             cancel(sk, key, ops);

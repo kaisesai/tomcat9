@@ -290,7 +290,8 @@ public abstract class AbstractProcessor extends AbstractProcessorLight implement
         }
         
         try {
-            // Validates the host name
+            // 解析虚拟机
+          // Validates the host name
             int colonPos = Host.parse(valueMB);
             
             // Extract the port information first, if any
@@ -305,6 +306,7 @@ public abstract class AbstractProcessor extends AbstractProcessorLight implement
                     }
                     port = port * 10 + c - '0';
                 }
+              // 为 request 设置端口号
                 request.setServerPort(port);
                 
                 // Only need to copy the host name up to the :
@@ -315,6 +317,7 @@ public abstract class AbstractProcessor extends AbstractProcessorLight implement
             for (int i = 0; i < valueL; i++) {
                 hostNameC[i] = (char) valueB[i + valueS];
             }
+          // 设置 request 的服务字符
             request.serverName().setChars(hostNameC, 0, valueL);
             
         } catch (IllegalArgumentException e) {

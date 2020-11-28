@@ -287,6 +287,7 @@ public class Http11Processor extends AbstractProcessor {
                     // Set this every time in case limit has been changed via JMX
                     request.getMimeHeaders().setLimit(protocol.getMaxHeaderCount());
                     // Don't parse headers for HTTP/0.9
+                  // 处理请求头数据
                     if (!http09 && !inputBuffer.parseHeaders()) {
                         // We've read part of the request, don't recycle it
                         // instead associate it with the socket
@@ -356,6 +357,7 @@ public class Http11Processor extends AbstractProcessor {
                 // Setting up filters, and parse some request headers
                 rp.setStage(org.apache.coyote.Constants.STAGE_PREPARE);
                 try {
+                  // 准备请求，设置请求过滤器
                     prepareRequest();
                 } catch (Throwable t) {
                     ExceptionUtils.handleThrowable(t);
@@ -750,8 +752,9 @@ public class Http11Processor extends AbstractProcessor {
                 badRequest("http11processor.request.invalidScheme");
             }
         }
-        
-        // Validate the characters in the URI. %nn decoding will be checked at
+  
+      // 验证 URI 上的字符
+      // Validate the characters in the URI. %nn decoding will be checked at
         // the point of decoding.
         for (int i = uriBC.getStart(); i < uriBC.getEnd(); i++) {
             if (!httpParser.isAbsolutePathRelaxed(uriB[i])) {
@@ -759,8 +762,9 @@ public class Http11Processor extends AbstractProcessor {
                 break;
             }
         }
-        
-        // Input filter setup
+  
+      // 输入过滤器
+      // Input filter setup
         InputFilter[] inputFilters = inputBuffer.getFilters();
         
         // Parse transfer-encoding header
@@ -770,7 +774,8 @@ public class Http11Processor extends AbstractProcessor {
                 List<String> encodingNames = new ArrayList<>();
                 if (TokenList.parseTokenList(headers.values("transfer-encoding"), encodingNames)) {
                     for (String encodingName : encodingNames) {
-                        // "identity" codings are ignored
+                      // "identity" codings are ignored
+                      // 添加输入过滤器
                         addInputFilter(inputFilters, encodingName);
                     }
                 } else {
@@ -779,8 +784,9 @@ public class Http11Processor extends AbstractProcessor {
                 }
             }
         }
-        
-        // Parse content-length header
+  
+      // 解析请求头内容长度
+      // Parse content-length header
         long contentLength = -1;
         try {
             contentLength = request.getContentLengthLong();
@@ -803,8 +809,9 @@ public class Http11Processor extends AbstractProcessor {
                 contentDelimitation = true;
             }
         }
-        
-        // Validate host name and extract port if present
+  
+      // 处理器虚拟机
+      // Validate host name and extract port if present
         parseHost(hostValueMB);
         
         if (!contentDelimitation) {

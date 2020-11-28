@@ -507,6 +507,7 @@ public abstract class SocketWrapperBase<E> {
     // Is there enough data in the read buffer to satisfy this request?
     // Copy what data there is in the read buffer to the byte array
     socketBufferHandler.configureReadBufferForRead();
+    // 把 socket 数据
     int nRead = transfer(socketBufferHandler.getReadBuffer(), to);
     
     if (log.isDebugEnabled()) {

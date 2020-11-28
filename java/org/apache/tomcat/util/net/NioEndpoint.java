@@ -270,9 +270,10 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel, SocketChannel>
       // 初始化连接限流计数器
       initializeConnectionLatch();
       
-      // 创建一个轮询器
+      // 创建一个轮询器，名称为 ClientPoller，主要负责处理接收客户端 socket 的事件
       // Start poller thread
       poller = new Poller();
+      // 客户端轮询器
       Thread pollerThread = new Thread(poller, getName() + "-ClientPoller");
       pollerThread.setPriority(threadPriority);
       // 设置守护线程
@@ -690,7 +691,8 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel, SocketChannel>
          * at the moment, the preference is for simplicity.
          */
       }
-      
+  
+      // 读取数据
       // Fill the read buffer as best we can.
       nRead = fillReadBuffer(block);
       updateLastRead();
@@ -723,6 +725,7 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel, SocketChannel>
       int limit = socketBufferHandler.getReadBuffer().capacity();
       if (to.remaining() >= limit) {
         to.limit(to.position() + limit);
+        // 开始读取 socket 数据，放到 byteBuffer
         nRead = fillReadBuffer(block, to);
         if (log.isDebugEnabled()) {
           log.debug("Socket: [" + this + "], Read direct from socket: [" + nRead + "]");
@@ -730,15 +733,17 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel, SocketChannel>
         updateLastRead();
       } else {
         // Fill the read buffer as best we can.
+        // 读取数据到缓存区
         nRead = fillReadBuffer(block);
         if (log.isDebugEnabled()) {
           log.debug("Socket: [" + this + "], Read into buffer: [" + nRead + "]");
         }
         updateLastRead();
-        
-        // Fill as much of the remaining byte array as possible with the
-        // data that was just read
+  
+        // Fill as much of the remaining byte array as possible with the data that was just read
+        //
         if (nRead > 0) {
+          // 用刚读取的数据尽可能多的填充剩余字节数组
           nRead = populateReadBuffer(to);
         }
       }
@@ -790,6 +795,7 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel, SocketChannel>
     
     private int fillReadBuffer(boolean block, ByteBuffer to) throws IOException {
       int nRead;
+      // 获取 socket
       NioChannel socket = getSocket();
       if (socket == NioChannel.CLOSED_NIO_CHANNEL) {
         throw new ClosedChannelException();
@@ -802,6 +808,7 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel, SocketChannel>
           // Ignore
         }
         try {
+          // NioSelectorPool 读取数据
           nRead = pool.read(to, socket, selector, getReadTimeout());
         } finally {
           if (selector != null) {
@@ -809,6 +816,7 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel, SocketChannel>
           }
         }
       } else {
+        // 非阻塞的，直接从 socket 读取数据到缓存区 byteBuffer
         nRead = socket.read(to);
         if (nRead == -1) {
           throw new EOFException();
@@ -1714,7 +1722,7 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel, SocketChannel>
        * in turn can result in unintentionally closing currently active
        * connections.
        */
-      // 获取端点的轮询器
+      // 获取客户端轮询器
       Poller poller = NioEndpoint.this.poller;
       if (poller == null) {
         socketWrapper.close();

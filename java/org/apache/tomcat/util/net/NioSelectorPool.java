@@ -132,6 +132,7 @@ public class NioSelectorPool {
     getSharedSelector();
     if (shared) {
       blockingSelector = new NioBlockingSelector();
+      // 代开一个阻塞选择器
       blockingSelector.open(name, getSharedSelector());
     }
     
@@ -155,6 +156,7 @@ public class NioSelectorPool {
   public int write(ByteBuffer buf, NioChannel socket, Selector selector, long writeTimeout)
     throws IOException {
     if (shared) {
+      // 写数据
       return blockingSelector.write(buf, socket, writeTimeout);
     }
     SelectionKey key = null;
@@ -227,6 +229,7 @@ public class NioSelectorPool {
   public int read(ByteBuffer buf, NioChannel socket, Selector selector, long readTimeout)
     throws IOException {
     if (shared) {
+      // 从阻塞选择器中读取 socket 数据
       return blockingSelector.read(buf, socket, readTimeout);
     }
     SelectionKey key = null;
@@ -238,6 +241,7 @@ public class NioSelectorPool {
       while (!timedout) {
         int cnt = 0;
         if (keycount > 0) { //only read if we were registered for a read
+          // 从 socket 中读取数据到 byte 缓冲区
           cnt = socket.read(buf);
           if (cnt == -1) {
             if (read == 0) {
@@ -250,12 +254,15 @@ public class NioSelectorPool {
             continue; //read some more
           }
           if (cnt == 0 && read > 0) {
+            // 已经读取完毕
             break; //we are done reading
           }
         }
+        // 执行阻塞读取
         if (selector != null) {//perform a blocking read
           //register OP_WRITE to the selector
           if (key == null) {
+            //  在客户端 socket 上注册一个读取的选择器键
             key = socket.getIOChannel().register(selector, SelectionKey.OP_READ);
           } else {
             key.interestOps(SelectionKey.OP_READ);
@@ -263,6 +270,7 @@ public class NioSelectorPool {
           if (readTimeout == 0) {
             timedout = (read == 0);
           } else if (readTimeout < 0) {
+            // 阻塞读取
             keycount = selector.select();
           } else {
             keycount = selector.select(readTimeout);
@@ -279,6 +287,7 @@ public class NioSelectorPool {
       if (key != null) {
         key.cancel();
         if (selector != null) {
+          // 从选择器中删除秘钥
           selector.selectNow();//removes the key from this selector
         }
       }

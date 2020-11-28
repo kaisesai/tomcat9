@@ -313,6 +313,8 @@ public class InputBuffer extends Reader
   }
   
   /**
+   * 读取 byte 数据。
+   * <p>
    * Reads new bytes in the byte chunk.
    *
    * @throws IOException An underlying IOException occurred
@@ -329,8 +331,9 @@ public class InputBuffer extends Reader
     if (state == INITIAL_STATE) {
       state = BYTE_STATE;
     }
-    
+  
     try {
+      // 执行读取请求体中的数据
       return coyoteRequest.doRead(this);
     } catch (IOException ioe) {
       // An IOException on a read is almost always due to
@@ -354,7 +357,8 @@ public class InputBuffer extends Reader
     if (closed) {
       throw new IOException(sm.getString("inputBuffer.streamClosed"));
     }
-    
+  
+    // 检查并读取缓存区数据
     if (checkByteBufferEof()) {
       return -1;
     }
@@ -591,6 +595,7 @@ public class InputBuffer extends Reader
   
   private boolean checkByteBufferEof() throws IOException {
     if (bb.remaining() == 0) {
+      // 读取字节数据到缓冲区
       int n = realReadBytes();
       if (n < 0) {
         return true;

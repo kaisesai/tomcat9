@@ -79,6 +79,9 @@ import org.apache.tomcat.util.res.StringManager;
 import org.apache.tomcat.util.security.PermissionCheck;
 
 /**
+ * webapp 类加载器。它对自己 webapp 类加载时打破了双亲委派机制。
+ *
+ *
  * Specialized web application class loader.
  * <p>
  * This class loader is a full reimplementation of the
@@ -1137,7 +1140,8 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
       
       // Log access to stopped class loader
       checkStateForClassLoading(name);
-      
+  
+      // （0）检查已经加载的本地类缓存
       // (0) Check our previously loaded local class cache
       clazz = findLoadedClass0(name);
       if (clazz != null) {
@@ -1149,7 +1153,8 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
         }
         return clazz;
       }
-      
+  
+      // （0.1）检查已经加载的类缓存
       // (0.1) Check our previously loaded class cache
       clazz = JreCompat.isGraalAvailable() ? null : findLoadedClass(name);
       if (clazz != null) {
@@ -1161,7 +1166,8 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
         }
         return clazz;
       }
-      
+  
+      // （0.2）尝试使用启动类加载器加载，为了防止 webapp 中重写了 javase 的类。
       // (0.2) Try loading the class with the system class loader, to prevent
       //       the webapp from overriding Java SE classes. This implements
       //       SRV.10.7.2
@@ -1210,7 +1216,8 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
           // Ignore
         }
       }
-      
+  
+      // 授权访问
       // (0.5) Permission to access this class when using a SecurityManager
       if (securityManager != null) {
         int i = name.lastIndexOf('.');
@@ -1224,9 +1231,12 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
           }
         }
       }
-      
+      // 检查是否委派给父类
+      // 通过过滤条件查询该类是否允许委派给父类加载器加载：servlet、javax、catalina、jasper、websocket、coyote、juli、naming、tomcat、el，
+      // 这些包名的类都是需要委托给父类加载，因为这些类在 webapp 中的都是公用的类库
       boolean delegateLoad = delegate || filter(name, true);
-      
+  
+      // （1）委派给父类加载器加载
       // (1) Delegate to our parent if requested
       if (delegateLoad) {
         if (log.isDebugEnabled()) {
@@ -1247,7 +1257,8 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
           // Ignore
         }
       }
-      
+  
+      // （2）搜索本地仓库
       // (2) Search local repositories
       if (log.isDebugEnabled()) {
         log.debug("  Searching local repositories");
@@ -1266,7 +1277,8 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
       } catch (ClassNotFoundException e) {
         // Ignore
       }
-      
+  
+      //（3）委派给父类加载器
       // (3) Delegate to parent unconditionally
       if (!delegateLoad) {
         if (log.isDebugEnabled()) {
@@ -1288,7 +1300,8 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
         }
       }
     }
-    
+  
+    // 最后都找不到就排除异常
     throw new ClassNotFoundException(name);
   }
   

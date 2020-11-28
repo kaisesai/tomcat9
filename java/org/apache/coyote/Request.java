@@ -567,7 +567,7 @@ public final class Request {
         if (getBytesRead() == 0 && !response.isCommitted()) {
             action(ActionCode.ACK, ContinueResponseTiming.ON_REQUEST_BODY_READ);
         }
-        
+        // 冲输入缓存区读取请求体数据
         int n = inputBuffer.doRead(handler);
         if (n > 0) {
             bytesRead += n;
